@@ -2,7 +2,7 @@ import streamlit as st
 import openai
 from generate_story import *
 
-openai.api_key = st.secrets("API_KEY")
+openai.api_key = st.secrets["API_KEY"]
 
 image_prompt_style = "children's book style, watercolor, clear, simple, bright, colorful, cartoon"
 
