@@ -2,9 +2,16 @@ import streamlit as st
 import openai
 from generate_story import *
 import time
+import dotenv
+import os
 
+# Load the values from the .env file into the environment variables
+dotenv.load_dotenv()
 
-openai.api_key = "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"
+# Get the API key from the environment variables
+api_key = os.environ.get('API_KEY')
+openai.api_key = api_key
+
 image_prompt_style = "children's book style, watercolor, clear, simple, bright, colorful, cartoon"
 
 st.title("Story Teller")
