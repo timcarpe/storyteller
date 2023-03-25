@@ -1,6 +1,3 @@
-# Welcome to Streamlit!
+# Story Teller
 
-Edit `/streamlit_app.py` to customize this app to your heart's desire. :heart:
-
-If you have any questions, checkout our [documentation](https://docs.streamlit.io) and [community
-forums](https://discuss.streamlit.io).
+This is a simple program that generates a story prompt for children's literacy as well as comprehension questions and image captions which are used to generate images.
