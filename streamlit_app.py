@@ -5,11 +5,11 @@ import dotenv
 import os
 
 # Load the values from the .env file into the environment variables
-dotenv.load_dotenv()
+#dotenv.load_dotenv()
 
 # Get the API key from the environment variables
-api_key = os.environ.get('API_KEY')
-openai.api_key = api_key
+#api_key = os.environ.get('API_KEY')
+openai.api_key = st.secrets("API_KEY")
 
 image_prompt_style = "children's book style, watercolor, clear, simple, bright, colorful, cartoon"
 
