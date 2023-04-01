@@ -6,6 +6,8 @@ import warnings
 from PIL import Image
 from stability_sdk import client
 import stability_sdk.interfaces.gooseai.generation.generation_pb2 as generation
+import urllib.request
+import shutil
 
 
 stability_api = client.StabilityInference(
@@ -19,12 +21,12 @@ stability_api = client.StabilityInference(
 
 #Define the class StoryPage
 class StoryPage:
-    def __init__(self, pagetext, question, image_prompt, image_url="", sd_image=None):
+    def __init__(self, pagetext, question, image_prompt, image_url="", image_file=None):
         self.pagetext = pagetext
         self.question = question
         self.image_prompt = image_prompt
         self.image_url = image_url
-        self.sd_image = sd_image
+        self.image_file = image_file
 
     def __str__(self):
         return f"Pagetext: {self.pagetext}\nQuestion: {self.question}\nImage: {self.image_prompt}\nURL: {self.image_url}\n\n"
@@ -70,28 +72,38 @@ def split_story(story):
 
 #Generate the images using DALL-E 2 or use placeholder image
 def generate_images(story_pages, image_prompt_style, image_type):
+
     img = None
+    url = ""
+
     for element in story_pages:
+
+        #Generate image using DALL-E 2
         if image_type == "DALL-E-2":
             response = openai.Image.create(
             prompt=element.image_prompt+"\n"+image_prompt_style,
             n=1,
             size="256x256"
             )
+
+            #Get web URL of image
             url = response['data'][0]['url']
+            #Download image
+            urllib.request.urlretrieve(url, str(story_pages.index(element)) + ".png")
+            img = Image.open(str(story_pages.index(element)) + ".png")
+            #set local image URL
+            url = str(story_pages.index(element))+ ".png"
+
+        #Generate image using Stable Difussion
         elif image_type == "Stable Diffusion":
             answers = stability_api.generate(
                 prompt=element.image_prompt+"\n"+image_prompt_style,
-                seed=992446758, # If a seed is provided, the resulting generated image will be deterministic.
-                                # What this means is that as long as all generation parameters remain the same, you can always recall the same image simply by generating it again.
-                                # Note: This isn't quite the case for Clip Guided generations, which we'll tackle in a future example notebook.
                 cfg_scale=8.0, # Influences how strongly your generation is guided to match your prompt.
-                width=256, # Generation width, defaults to 512 if not included.
-                height=256, # Generation height, defaults to 512 if not included.
-                sampler=generation.SAMPLER_K_DPMPP_2M # Choose which sampler we want to denoise our generation with.
-                                                            # Defaults to k_dpmpp_2m if not specified. Clip Guidance only supports ancestral samplers.
-                                                            # (Available Samplers: ddim, plms, k_euler, k_euler_ancestral, k_heun, k_dpm_2, k_dpm_2_ancestral, k_dpmpp_2s_ancestral, k_lms, k_dpmpp_2m)
+                width=256,
+                height=256,
+                sampler=generation.SAMPLER_K_DPMPP_2M # (Available Samplers: ddim, plms, k_euler, k_euler_ancestral, k_heun, k_dpm_2, k_dpm_2_ancestral, k_dpmpp_2s_ancestral, k_lms, k_dpmpp_2m)
             )
+            #Get web URL of image and save it locally
             for resp in answers:
                 for artifact in resp.artifacts:
                     if artifact.finish_reason == generation.FILTER:
@@ -100,12 +112,14 @@ def generate_images(story_pages, image_prompt_style, image_type):
                             "Please modify the prompt and try again.")
                     if artifact.type == generation.ARTIFACT_IMAGE:
                         img = Image.open(io.BytesIO(artifact.binary))
-                        #img.save(str(story_pages.index(element))+ ".png") # Save our generated images with their seed number as the filename.
+                        img.save(str(story_pages.index(element))+ ".png")
                         url = str(story_pages.index(element))+ ".png"
         else:
-            url="https://th.bing.com/th/id/OIP.w3UA6Hh9MDv2u0rts8rwqQHaHa?pid=ImgDet&rs=1"
-        
+            #Use placeholder image URL
+            url="placeholder.png"
+            img = Image.open("placeholder.png")
+
+        #Set image URL and image
         element.image_url = url
-        
         if img:
-            element.sd_image = img
+            element.image_file = img

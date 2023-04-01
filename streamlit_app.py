@@ -1,6 +1,7 @@
 import streamlit as st
 import openai
 from generate_story import *
+from generate_file import *
 
 openai.api_key = st.secrets["API_KEY"]
 image_prompt_style = "vintage, in the art style of Maurice Sendak"
@@ -16,16 +17,30 @@ image_type = st.sidebar.radio(
 
 if st.button("Generate Story"):
     with st.spinner('Generating Story...'):
-        #st.write('Generating Story...')
+
+        #Generate the story
         text = generate_story_response(user_topic)
+
+        #Split the story into pages
         story_pages = split_story(text)
+
+        #Generate the images
         generate_images(story_pages, image_prompt_style=image_prompt_style, image_type=image_type)
+
+        #Display the story
         for element in story_pages:
-            if element.sd_image != None: 
-                st.image(element.sd_image, caption=element.pagetext)
+            if element.image_file != None: 
+                st.image(element.image_file, caption=element.pagetext)
             else:
                 st.image(element.image_url, caption=element.pagetext)
             st.write("")
             st.write(element.question)
             st.write("")
+
+        #Generate the .docx file
+        filename = "Story Teller Output"
+        generate_document(story_pages, filename)
+
+        #Download button
+        st.sidebar.download_button(label="Download Story", data=open(filename+".docx", "rb").read(), file_name=filename+".docx", mime="application/docx")
 
