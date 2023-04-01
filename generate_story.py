@@ -1,13 +1,10 @@
-import streamlit as st
 import openai
-import os
 import io
 import warnings
 from PIL import Image
 from stability_sdk import client
 import stability_sdk.interfaces.gooseai.generation.generation_pb2 as generation
 import urllib.request
-import shutil
 
 
 stability_api = client.StabilityInference(
