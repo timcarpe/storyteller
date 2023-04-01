@@ -1,13 +1,30 @@
 import streamlit as st
 import openai
+import os
+import io
+import warnings
+from PIL import Image
+from stability_sdk import client
+import stability_sdk.interfaces.gooseai.generation.generation_pb2 as generation
+
+
+stability_api = client.StabilityInference(
+    key="sk-y8k52RAAEUtxCrlbtJNeJyT1uioUKjZXEGRJP4gFx3caqz45", # API Key reference.
+    verbose=True, # Print debug messages.
+    engine="stable-diffusion-v1-5", # Set the engine to use for generation.
+    # Available engines: stable-diffusion-v1 stable-diffusion-v1-5 stable-diffusion-512-v2-0 stable-diffusion-768-v2-0
+    # stable-diffusion-512-v2-1 stable-diffusion-768-v2-1 stable-inpainting-v1-0 stable-inpainting-512-v2-0
+)
+
 
 #Define the class StoryPage
 class StoryPage:
-    def __init__(self, pagetext, question, image_prompt, image_url=""):
+    def __init__(self, pagetext, question, image_prompt, image_url="", sd_image=None):
         self.pagetext = pagetext
         self.question = question
         self.image_prompt = image_prompt
         self.image_url = image_url
+        self.sd_image = sd_image
 
     def __str__(self):
         return f"Pagetext: {self.pagetext}\nQuestion: {self.question}\nImage: {self.image_prompt}\nURL: {self.image_url}\n\n"
@@ -49,20 +66,46 @@ def split_story(story):
             question, image_prompt = "", ""
 
         story_pages.append(StoryPage(pagetext, question, image_prompt))
-
     return story_pages
 
 #Generate the images using DALL-E 2 or use placeholder image
-def generate_images(story_pages, image_prompt_style, use_dalle_images=False):
+def generate_images(story_pages, image_prompt_style, image_type):
+    img = None
     for element in story_pages:
-        if use_dalle_images:
+        if image_type == "DALL-E-2":
             response = openai.Image.create(
             prompt=element.image_prompt+"\n"+image_prompt_style,
             n=1,
             size="256x256"
             )
             url = response['data'][0]['url']
+        elif image_type == "Stable Diffusion":
+            answers = stability_api.generate(
+                prompt=element.image_prompt+"\n"+image_prompt_style,
+                seed=992446758, # If a seed is provided, the resulting generated image will be deterministic.
+                                # What this means is that as long as all generation parameters remain the same, you can always recall the same image simply by generating it again.
+                                # Note: This isn't quite the case for Clip Guided generations, which we'll tackle in a future example notebook.
+                cfg_scale=8.0, # Influences how strongly your generation is guided to match your prompt.
+                width=256, # Generation width, defaults to 512 if not included.
+                height=256, # Generation height, defaults to 512 if not included.
+                sampler=generation.SAMPLER_K_DPMPP_2M # Choose which sampler we want to denoise our generation with.
+                                                            # Defaults to k_dpmpp_2m if not specified. Clip Guidance only supports ancestral samplers.
+                                                            # (Available Samplers: ddim, plms, k_euler, k_euler_ancestral, k_heun, k_dpm_2, k_dpm_2_ancestral, k_dpmpp_2s_ancestral, k_lms, k_dpmpp_2m)
+            )
+            for resp in answers:
+                for artifact in resp.artifacts:
+                    if artifact.finish_reason == generation.FILTER:
+                        warnings.warn(
+                            "Your request activated the API's safety filters and could not be processed."
+                            "Please modify the prompt and try again.")
+                    if artifact.type == generation.ARTIFACT_IMAGE:
+                        img = Image.open(io.BytesIO(artifact.binary))
+                        #img.save(str(story_pages.index(element))+ ".png") # Save our generated images with their seed number as the filename.
+                        url = str(story_pages.index(element))+ ".png"
         else:
             url="https://th.bing.com/th/id/OIP.w3UA6Hh9MDv2u0rts8rwqQHaHa?pid=ImgDet&rs=1"
+        
         element.image_url = url
-        #st.image(url, caption=element.pagetext)
+        
+        if img:
+            element.sd_image = img
